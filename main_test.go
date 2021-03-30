@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -57,18 +58,44 @@ func TestSave(t *testing.T) {
 	}
 }
 
+// This test doesn't do much, just verifies json decode logic
 func TestGet(t *testing.T) {
 	cookbook, server, cleanup := setup()
 	defer cleanup()
 
 	id := "abcd"
+	title := "Unspeakable things"
+	ingredients := []string{"1 bag of garbage", "2 bags of garbage"}
+
+	recip := new(Recipe)
+	recip.Id = id
+	recip.Title = title
+	recip.Ingredients = ingredients
+
 	server.HandleFunc("/"+id, func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"":""}`)
+		enc := json.NewEncoder(w)
+		err := enc.Encode(recip)
+		t.Logf("Rendering Response: %s", recip)
+
+		if err != nil {
+			t.Fatal("Unable to encode json")
+		}
 	})
 
-	cookbook.get(id)
+	recipe, err := cookbook.get(id)
+	if err != nil {
+		t.Error(err)
+	}
 
-	t.Error("Not a real test")
+	if recipe.Id != id || recipe.Title != title {
+		t.Error("Id or Title did not expected from server")
+	}
+
+	for i, v := range recipe.Ingredients {
+		if v != ingredients[i] {
+			t.Errorf("Element %d from server does match expected: %s actual: %s", i, ingredients[i], v)
+		}
+	}
 }
 
 func TestRefresh(t *testing.T) {

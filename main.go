@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
@@ -40,30 +40,37 @@ type Recipe struct {
 }
 
 // Whew I don't know how i feel about just returning the id?
-type RecipeID struct {
+type recipeID struct {
 	Id string `json:"id"`
 }
 
-func (c *Cookbook) get(id string) (recipe *Recipe, err error) {
-	res, err := c.client.Get(c.baseURL + id)
+type NoRecipeFound struct {
+	Id string
+}
+
+func (e *NoRecipeFound) Error() string {
+	return fmt.Sprintf("No recipe with id %s found", e.Id)
+}
+
+func (c *Cookbook) get(id string) (*Recipe, error) {
+	res, err := c.client.Get(c.baseURL + "/" + id)
+
+	if res.StatusCode != 200 {
+		return nil, &NoRecipeFound{id}
+	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	body, readErr := ioutil.ReadAll(res.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-
-	recipe = nil
-	err = json.Unmarshal(body, &recipe)
+	var recipe Recipe
+	err = json.NewDecoder(res.Body).Decode(&recipe)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return recipe, nil
+	return &recipe, nil
 }
 
 func (c *Cookbook) refresh() error {
@@ -126,7 +133,7 @@ func (c *Cookbook) save(recipe *Recipe) error {
 		return err
 	}
 
-	var rid RecipeID
+	var rid recipeID
 	err = json.Unmarshal(body, &rid)
 
 	if err != nil {
@@ -139,7 +146,7 @@ func (c *Cookbook) save(recipe *Recipe) error {
 }
 
 func (c *Cookbook) delete(recipe Recipe) (string, error) {
-	return "dumbnodumbman", nil
+	return "", nil
 }
 
 // class RecipeSchema(Schema):
